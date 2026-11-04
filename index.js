@@ -1,46 +1,53 @@
 module.exports = {
   setupEleventy(eleventyConfig) {
-    // Notes related to the given url: the 2-hop link neighborhood, scored
-    // by how many connections lead there. Direct neighbors are excluded —
-    // they're already visible as links and backlinks.
     eleventyConfig.addFilter("gpRelatedNotes", function (graph, url, count) {
       const nodes = (graph && graph.nodes) || {};
       const current = nodes[url];
-
       if (!current) {
         return [];
       }
 
-      const direct = new Set(current.neighbors || []);
-      const scores = new Map();
+      // 1. Get strictly direct neighbors (1st-degree local graph)
+      const directUrls = current.neighbors || [];
 
-      for (const neighborUrl of direct) {
-        const neighbor = nodes[neighborUrl];
+      // Map URLs to their full node objects from the graph
+      const strictlyRelated = directUrls
+        .map(neighborUrl => {
+          const node = nodes[neighborUrl];
+          return node ? { url: neighborUrl, ...node } : null;
+        })
+        .filter(Boolean);
 
-        for (const candidateUrl of (neighbor && neighbor.neighbors) || []) {
-          const candidate = nodes[candidateUrl];
+      // 2. Classifier function to identify "Collection" logs
+      const isCollectionNode = (node) => {
+        const titleText = (node.title || '').toLowerCase();
+        const pathString = (node.url || '').toLowerCase();
+        const tags = node.tags || [];
+        
+        return titleText.includes('collection') || 
+               pathString.includes('collections/') ||
+               tags.includes('collection');
+      };
 
-          if (
-            !candidate ||
-            candidate.hide ||
-            candidate.home ||
-            candidateUrl === url ||
-            direct.has(candidateUrl)
-          ) {
-            continue;
-          }
+      // Separate regular logs from collections
+      const regularLogs = strictlyRelated.filter(node => !isCollectionNode(node));
+      const collectionLogs = strictlyRelated.filter(node => isCollectionNode(node));
 
-          scores.set(candidateUrl, (scores.get(candidateUrl) || 0) + 1);
-        }
+      // 3. Rule: Include collections only if there are 3 or fewer regular logs
+      let finalSelection = [];
+      if (regularLogs.length <= 3) {
+        finalSelection = [...regularLogs, ...collectionLogs];
+      } else {
+        finalSelection = regularLogs;
       }
 
-      return [...scores.entries()]
-        .sort((a, b) => b[1] - a[1])
+      // Return the formatted array sliced to your preferred count limit
+      return finalSelection
         .slice(0, count || 4)
-        .map(([relatedUrl]) => ({
-          url: relatedUrl,
-          title: nodes[relatedUrl].title,
-          noteIcon: nodes[relatedUrl].noteIcon,
+        .map(node => ({
+          url: node.url,
+          title: node.title,
+          noteIcon: node.noteIcon,
         }));
     });
   },

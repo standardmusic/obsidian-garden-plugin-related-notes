@@ -1,9 +1,9 @@
 {
-  "id": "related-notes",
+  "id": "obsidian-garden-plugin-related-notes",
   "name": "Related Notes",
   "version": "1.0.0",
   "description": "Suggests related notes under each note, based on the link graph neighborhood.",
-  "author": "Ole Eskild Steensen",
+  "author": "3364271642451640320",
   "hooks": "index.js",
   "slots": {
     "notes.afterContent": "templates/related.njk"
